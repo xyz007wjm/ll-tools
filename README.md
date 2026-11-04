@@ -4,9 +4,11 @@ Windows 7 / 10 / 11 的实用 tweaks 合集：自动关闭 / 恢复 **系统更�
 
 免安装、无第三方依赖，只用系统自带的 PowerShell 5.1 + WinForms。同一个 EXE 自适应系统版本：Windows 8 及以上走 PowerShell 原生模块，Windows 7 走 netsh / WMI / 计划任务 COM / 注册表等旧版接口。
 
-> 本工具旧名「轻账优化大师」，自 v1.2 起改为「轻账win功能工具箱」。首次启动会自动把旧名的配置、恢复快照和守护计划任务迁移到新名称与新数据目录，不需要手动处理；卸载时会一并清理旧名遗留。
+> 本工具旧名「轻账优化大师」，2026-11 起改为「轻账win功能工具箱」。首次启动会自动把旧名的配置、恢复快照和守护计划任务迁移到新名称与新数据目录，不需要手动处理；卸载时会一并清理旧名遗留。
 >
 > 内部文件名与函数仍沿用 WinGuard 代号（`WinGuard.ps1`、`Get-WinGuardStatus` 等），仅为实现细节，不影响使用。
+>
+> **版本号从 v0.0.1 起算**：GitHub Release 标签、EXE 内部版本标记（`build\Launcher.cs` 的 `Version` 常量）和文件名保持一致，以后每次发布依次往上走。改名与横向布局之前的 1.x 只是开发期内部编号，见 [CHANGELOG.md](CHANGELOG.md)。
 
 ![界面截图](docs/screenshot.png)
 
@@ -14,16 +16,18 @@ Windows 7 / 10 / 11 的实用 tweaks 合集：自动关闭 / 恢复 **系统更�
 
 ## 下载
 
+**[Releases](https://github.com/xyz007wjm/ll-tools/releases/tag/v0.0.1)** 里下载 `ll-tools-v0.0.1.exe`（推荐），仓库根目录也放着同一个文件（那里叫 `轻账win功能工具箱.exe`）。Release 附件名用 ASCII 是因为 GitHub 的 Release API 会剥掉文件名里的非 ASCII 字符；下载后运行的仍是「轻账win功能工具箱」，数据目录也是中文名。
+
 | 版本 | 文件 | 大小 | SHA256 |
 | --- | --- | --- | --- |
-| v1.2.2（最新） | [`轻账win功能工具箱.exe`](https://github.com/xyz007wjm/ll-tools/blob/main/%E8%BD%BB%E8%B4%A6win%E5%8A%9F%E8%83%BD%E5%B7%A5%E5%85%B7%E7%AE%B1.exe) | 147 KB | `99B695885A715F0B4CF1051AAF9BB06942AEDFC6AF5B819FBB72F3CD82BF992C` |
-| v1.2.2 | `轻账win功能工具箱_v1.2.2.zip`（内含同一个 EXE） | 32 KB | `3BD6507086BDDD45D7ECFE31190C4155EE5DC393FCA341CF62505F67BFEA8A74` |
+| v0.0.1（最新） | `ll-tools-v0.0.1.exe` = `轻账win功能工具箱.exe` | 147 KB | `41AB44D9EACF4D96A5E9D44435C0915CAD23D77FE591D4771A4604373ADCC8F3` |
+| v0.0.1 | `ll-tools-v0.0.1.zip`（内含中文名的同一个 EXE） | 32 KB | `3ED0D1A19109D6CEB7959FDF96C186A3F02FF65968479159E822170B4AA32AAD` |
 
 下载方式三选一：
 
-1. **仓库文件页**（推荐）：点开 `轻账win功能工具箱.exe` → 右上角 **Download raw file**（或 ⋯ → Raw）。
-2. **git clone** 本仓库，直接用仓库里的 EXE 或压缩包。
-3. 克隆后自己跑 `build\build.ps1` 重新打包（需要系统自带的 .NET Framework 4.x csc.exe）。
+1. **Releases**（推荐）：仓库首页右侧 Releases → 选 v0.0.1 → 下载 `ll-tools-v0.0.1.exe` 或 `.zip`。
+2. **仓库文件页**：点开 `轻账win功能工具箱.exe` → 右上角 **Download raw file**（或 ⋯ → Raw）。
+3. 克隆仓库后自己跑 `build\build.ps1` 重新打包（需要系统自带的 .NET Framework 4.x csc.exe）。
 
 校验（PowerShell）：
 

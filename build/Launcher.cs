@@ -9,7 +9,7 @@ namespace QingZhangLauncher
     internal static class Program
     {
         // 每次重新打包（脚本内容有变化）时请递增此版本号，否则已解压的旧脚本不会被刷新
-        private const string Version = "1.2.2";
+        private const string Version = "0.0.1";
 
         private static readonly string[][] Files =
         {
