@@ -4,9 +4,35 @@ Windows 7 / 10 / 11 的实用 tweaks 合集：自动关闭 / 恢复 **系统更�
 
 免安装、无第三方依赖，只用系统自带的 PowerShell 5.1 + WinForms。同一个 EXE 自适应系统版本：Windows 8 及以上走 PowerShell 原生模块，Windows 7 走 netsh / WMI / 计划任务 COM / 注册表等旧版接口。
 
-> 本工具旧名「轻账优化大师」，自 v1.2.0 起改为「轻账win功能工具箱」。首次启动会自动把旧名的配置、恢复快照和守护计划任务迁移到新名称与新数据目录，不需要手动处理；卸载时会一并清理旧名遗留。
+> 本工具旧名「轻账优化大师」，自 v1.2 起改为「轻账win功能工具箱」。首次启动会自动把旧名的配置、恢复快照和守护计划任务迁移到新名称与新数据目录，不需要手动处理；卸载时会一并清理旧名遗留。
 >
 > 内部文件名与函数仍沿用 WinGuard 代号（`WinGuard.ps1`、`Get-WinGuardStatus` 等），仅为实现细节，不影响使用。
+
+![界面截图](docs/screenshot.png)
+
+目录：[下载](#下载) · [风险提示](#-先读这一段) · [文件说明](#文件) · [使用](#使用) · [具体改了什么](#具体改了什么) · [Windows 7 兼容](#windows-7-兼容说明) · [守护原理](#守护是怎么工作的) · [排查](#排查) · [自检](#自检) · [加新功能页](#往工具箱里加一个新功能页) · [更新日志](CHANGELOG.md)
+
+## 下载
+
+| 版本 | 文件 | 大小 | SHA256 |
+| --- | --- | --- | --- |
+| v1.2.2（最新） | [`轻账win功能工具箱.exe`](https://github.com/xyz007wjm/ll-tools/blob/main/%E8%BD%BB%E8%B4%A6win%E5%8A%9F%E8%83%BD%E5%B7%A5%E5%85%B7%E7%AE%B1.exe) | 147 KB | `99B695885A715F0B4CF1051AAF9BB06942AEDFC6AF5B819FBB72F3CD82BF992C` |
+| v1.2.2 | `轻账win功能工具箱_v1.2.2.zip`（内含同一个 EXE） | 32 KB | `3BD6507086BDDD45D7ECFE31190C4155EE5DC393FCA341CF62505F67BFEA8A74` |
+
+下载方式三选一：
+
+1. **仓库文件页**（推荐）：点开 `轻账win功能工具箱.exe` → 右上角 **Download raw file**（或 ⋯ → Raw）。
+2. **git clone** 本仓库，直接用仓库里的 EXE 或压缩包。
+3. 克隆后自己跑 `build\build.ps1` 重新打包（需要系统自带的 .NET Framework 4.x csc.exe）。
+
+校验（PowerShell）：
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\轻账win功能工具箱.exe
+```
+
+> 国内网络直连 `raw.githubusercontent.com` 常被重置，命令行 `curl` 拉不下来时改用浏览器打开仓库文件页点 **Download raw file**。
+> EXE 未做代码签名，首次运行会弹 SmartScreen：**更多信息 → 仍要运行**。
 
 ## ⚠️ 先读这一段
 
@@ -27,9 +53,14 @@ Windows 7 / 10 / 11 的实用 tweaks 合集：自动关闭 / 恢复 **系统更�
 | `core.ps1` | 全部逻辑：开关 / 恢复 / 状态查询 / 快照 / 清理 / 守护计划任务 / 旧名迁移 |
 | `watchdog.ps1` | 由计划任务以 SYSTEM 身份静默调用的守护脚本 |
 | `cli.ps1` | 命令行入口，便于写进部署脚本 |
-| `selfcheck.ps1` | 37 项自检（WinForms 类型与选项卡布局、配置读写、快照往返、清理安全性、共享状态解析、计划任务对象、Win7 兼容路径、旧名迁移、引号安全等） |
+| `selfcheck.ps1` | 36 项自检（WinForms 类型与选项卡布局、配置读写、快照往返、清理安全性、共享状态解析、计划任务对象、Win7 兼容路径、旧名迁移、引号安全等） |
 | `restore-all.bat` | 一键恢复更新、防火墙与网络共享到改动前状态 |
 | `uninstall.bat` | 恢复设置 + 删除守护计划任务 + 删除新旧两个数据目录 |
+| `build\` | 打包用：`Launcher.cs`（内嵌脚本的 EXE 壳，内含 `Version` 常量）+ `build.ps1`（生成 `app.ico` 并编译） |
+| `docs\screenshot.png` | 界面截图，README 顶部引用 |
+| `CHANGELOG.md` | 版本变更历史 |
+| `LICENSE` | 许可与免责说明（当前为「保留所有权利」） |
+| `旧版本\` | 改名前的 `轻账优化大师.exe`、v1.1.1 压缩包与旧界面脚本，仅作存档，勿再分发 |
 
 ## 使用
 
@@ -169,4 +200,33 @@ powershell -NoProfile -ExecutionPolicy Bypass -File watchdog.ps1 -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File selfcheck.ps1
 ```
 
-覆盖 GUI 用到的 WinForms 类型与枚举、配置持久化往返、状态对象字段（含共享）、策略快照写入与还原（在 `HKCU` 临时键上跑，不碰系统策略）、无快照时的默认清理分支、共享状态解析、防火墙规则关键词筛选、icacls 的 Everyone ACE 识别、共享分区快照往返、计划任务对象构造，以及 6 项 Win7 兼容路径（注册表规则解析、配置文件读取、计划任务 COM、schtasks 往返、Win32_Printer/System.Printing、WMI 共享往返）。全部通过才建议实机使用。
+覆盖 GUI 用到的 WinForms 类型与枚举、配置持久化往返、状态对象字段（含共享）、策略快照写入与还原（在 `HKCU` 临时键上跑，不碰系统策略）、无快照时的默认清理分支、共享状态解析、防火墙规则关键词筛选、icacls 的 Everyone ACE 识别、共享分区快照往返、计划任务对象构造，6 项 Win7 兼容路径（注册表规则解析、配置文件读取、计划任务 COM、schtasks 往返、Win32_Printer/System.Printing、WMI 共享往返），清理安全性（24 小时过滤 + 跳过被占用文件）、旧名迁移的搬移与幂等，以及一条引号安全静态检查。全部通过才建议实机使用。
+
+## 往工具箱里加一个新功能页
+
+界面已经改成选项卡式，加功能就是加一页，改动集中在三个文件：
+
+1. **`core.ps1`**：写功能函数，遵循现有约定
+   - 用 `Invoke-Step '步骤说明' { ... } -Sink $Sink` 包每一步，日志和错误格式才能统一
+   - 改动系统前先用 `Add-Snapshot*` 记录原值，恢复函数按快照回滚
+   - Win7 差异用 `if ($script:IsLegacyOS) { 旧接口 } else { cmdlet }` 分岔
+   - 需要提权的入口先调 `Require-Admin`
+2. **`WinGuard.ps1`**：新建一个 `TabPage`，塞进 `$tabs.TabPages.AddRange(@(...))`，控件用文件顶部的工厂函数 `New-ToolGroup` / `New-ToolButton` / `New-ToolCheck` / `New-ToolLabel` 摆放；状态栏要显示新功能的读数，就同步改 `Get-WinGuardStatus` 的字段和 `$refresh` 里的赋值
+3. **`selfcheck.ps1`**：给新逻辑补 `Check '标签' { ... }` 断言（尽量在临时目录 / `HKCU` 临时键上跑，不碰真实系统状态）
+
+然后：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File selfcheck.ps1   # 必须全绿
+# 递增 build\Launcher.cs 里的 Version 常量（不改版本号，已解压的旧脚本不会刷新）
+powershell -NoProfile -ExecutionPolicy Bypass -File build\build.ps1
+```
+
+**两个踩过的坑**：
+
+- `.ps1` 必须存成**带 BOM 的 UTF-8**，否则 PowerShell 5.1 按 GBK 解析，中文直接变乱码。
+- **双引号字符串里不要出现中文全角引号 `“ ”`**：PowerShell 把它们当作字符串定界符，会把一行拆成多个参数，报错信息还常常指向别处（本项目就因此让 GUI 启动即崩）。要引用界面按钮名，用单引号串 + `「」`。
+
+## 许可
+
+见 [LICENSE](LICENSE)。当前为**保留所有权利**：可免费下载、在自己管理的机器上使用；未经许可不得再分发、转售或去掉「轻账」品牌信息。工具会改动更新、防火墙与共享等系统级安全设置，风险自负，改动前都有快照可回滚。

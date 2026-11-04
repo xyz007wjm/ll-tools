@@ -1,0 +1,23 @@
+版权所有 (c) 2026 轻账（www.lightledger.cn），保留所有权利。
+Copyright (c) 2026 QingZhang (www.lightledger.cn). All rights reserved.
+
+允许（Permitted）
+- 免费下载、运行本工具及其官方构建的 EXE，用于个人或你自己管理的计算机与内网环境。
+- 阅读源码，用于学习和自行排查问题。
+
+不允许（Not permitted），未经作者书面同意前请勿：
+- 再分发、转售、打包进其他软件或云盘二次发布，包括修改后的版本。
+- 移除、替换或遮盖界面与文档中的「轻账」品牌信息。
+- 将本仓库内容用于商业培训、代客服务等收费场景。
+
+免责（Disclaimer）
+本工具会修改 Windows 更新、防火墙与局域网共享等系统级设置，可能显著降低安全性。
+使用者需自行评估风险；因使用本工具导致的系统异常、数据丢失、网络暴露或任何损失，
+作者不承担任何责任。所有改动前会写入恢复快照，可用「恢复」按钮或 `uninstall.bat` 回滚。
+
+This software is provided "as is", without warranty of any kind. It changes
+system-level security settings (Windows Update, firewall, network sharing).
+Use at your own risk; the author is not liable for any damage or data loss.
+
+> 说明：本文件目前是「保留所有权利」的默认声明。若你想改成 MIT / Apache-2.0 等开源许可，
+> 替换本文件内容即可，README 的「许可」章节同步更新。
