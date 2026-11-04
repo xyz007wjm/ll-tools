@@ -1,0 +1,462 @@
+﻿#requires -Version 5.1
+# 轻账优化大师 图形界面。双击 start-gui.bat 即可启动，未提权时会自动请求 UAC。
+$ErrorActionPreference = 'Stop'
+. (Join-Path (Split-Path -Parent $PSCommandPath) 'core.ps1')
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+if (-not (Test-Admin)) {
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+        '轻账优化大师 需要管理员权限才能修改更新与防火墙设置。' + [Environment]::NewLine +
+        '是否立即以管理员身份重新启动？', '需要管理员权限',
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Shield)
+    if ($answer -eq [System.Windows.Forms.DialogResult]::Yes) {
+        try {
+            $exe = (Get-Process -Id $PID).Path
+            Start-Process -FilePath $exe `
+                -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`"" -Verb RunAs
+            return
+        } catch {
+            Write-Log '用户取消了 UAC 提权，本次只能查看状态。' 'WARN'
+        }
+    }
+}
+
+$cfg = Get-WinGuardConfig
+$stateDir = $script:StateDir
+$logPath = $script:LogPath
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = '轻账优化大师 - 更新、防火墙与共享控制中心'
+$form.ClientSize = New-Object System.Drawing.Size(640, 996)
+$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$form.MaximizeBox = $false
+$form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+$form.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 9)
+
+$sink = {
+    param([string]$line)
+    $txtLog.AppendText($line + [Environment]::NewLine)
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+$grpStatus = New-Object System.Windows.Forms.GroupBox
+$grpStatus.Text = '当前状态'
+$grpStatus.Location = New-Object System.Drawing.Point(12, 12)
+$grpStatus.Size = New-Object System.Drawing.Size(616, 132)
+$form.Controls.Add($grpStatus)
+
+$lblUpd = New-Object System.Windows.Forms.Label
+$lblUpd.Location = New-Object System.Drawing.Point(16, 24)
+$lblUpd.Size = New-Object System.Drawing.Size(584, 20)
+$grpStatus.Controls.Add($lblUpd)
+
+$lblFw = New-Object System.Windows.Forms.Label
+$lblFw.Location = New-Object System.Drawing.Point(16, 48)
+$lblFw.Size = New-Object System.Drawing.Size(584, 20)
+$grpStatus.Controls.Add($lblFw)
+
+$lblShare = New-Object System.Windows.Forms.Label
+$lblShare.Location = New-Object System.Drawing.Point(16, 72)
+$lblShare.Size = New-Object System.Drawing.Size(584, 20)
+$grpStatus.Controls.Add($lblShare)
+
+$lblWatch = New-Object System.Windows.Forms.Label
+$lblWatch.Location = New-Object System.Drawing.Point(16, 96)
+$lblWatch.Size = New-Object System.Drawing.Size(584, 20)
+$grpStatus.Controls.Add($lblWatch)
+
+$grpUpdate = New-Object System.Windows.Forms.GroupBox
+$grpUpdate.Text = 'Windows 更新'
+$grpUpdate.Location = New-Object System.Drawing.Point(12, 154)
+$grpUpdate.Size = New-Object System.Drawing.Size(616, 150)
+$form.Controls.Add($grpUpdate)
+
+$btnDisableUpd = New-Object System.Windows.Forms.Button
+$btnDisableUpd.Text = '关闭 Windows 更新'
+$btnDisableUpd.Location = New-Object System.Drawing.Point(16, 28)
+$btnDisableUpd.Size = New-Object System.Drawing.Size(190, 34)
+$grpUpdate.Controls.Add($btnDisableUpd)
+
+$btnRestoreUpd = New-Object System.Windows.Forms.Button
+$btnRestoreUpd.Text = '恢复 Windows 更新'
+$btnRestoreUpd.Location = New-Object System.Drawing.Point(226, 28)
+$btnRestoreUpd.Size = New-Object System.Drawing.Size(190, 34)
+$grpUpdate.Controls.Add($btnRestoreUpd)
+
+$chkWatchUpdate = New-Object System.Windows.Forms.CheckBox
+$chkWatchUpdate.Text = '守护：更新被系统重新打开时自动关闭'
+$chkWatchUpdate.Location = New-Object System.Drawing.Point(16, 74)
+$chkWatchUpdate.Size = New-Object System.Drawing.Size(400, 22)
+$chkWatchUpdate.Checked = [bool]$cfg.AutoUpdate
+$grpUpdate.Controls.Add($chkWatchUpdate)
+
+$chkDeep = New-Object System.Windows.Forms.CheckBox
+$chkDeep.Text = '强力模式（同时停用 BITS/更新修复服务、屏蔽更新站点、卸载防火墙服务）'
+$chkDeep.Location = New-Object System.Drawing.Point(16, 100)
+$chkDeep.Size = New-Object System.Drawing.Size(590, 22)
+$chkDeep.Checked = [bool]$cfg.Deep
+$grpUpdate.Controls.Add($chkDeep)
+
+$grpFirewall = New-Object System.Windows.Forms.GroupBox
+$grpFirewall.Text = 'Windows 防火墙（域 / 专用 / 公用）'
+$grpFirewall.Location = New-Object System.Drawing.Point(12, 320)
+$grpFirewall.Size = New-Object System.Drawing.Size(616, 120)
+$form.Controls.Add($grpFirewall)
+
+$btnDisableFw = New-Object System.Windows.Forms.Button
+$btnDisableFw.Text = '关闭防火墙'
+$btnDisableFw.Location = New-Object System.Drawing.Point(16, 28)
+$btnDisableFw.Size = New-Object System.Drawing.Size(190, 34)
+$grpFirewall.Controls.Add($btnDisableFw)
+
+$btnRestoreFw = New-Object System.Windows.Forms.Button
+$btnRestoreFw.Text = '恢复防火墙'
+$btnRestoreFw.Location = New-Object System.Drawing.Point(226, 28)
+$btnRestoreFw.Size = New-Object System.Drawing.Size(190, 34)
+$grpFirewall.Controls.Add($btnRestoreFw)
+
+$chkWatchFirewall = New-Object System.Windows.Forms.CheckBox
+$chkWatchFirewall.Text = '守护：防火墙被系统重新开启时自动关闭'
+$chkWatchFirewall.Location = New-Object System.Drawing.Point(16, 74)
+$chkWatchFirewall.Size = New-Object System.Drawing.Size(400, 22)
+$chkWatchFirewall.Checked = [bool]$cfg.AutoFirewall
+$grpFirewall.Controls.Add($chkWatchFirewall)
+
+$grpWatch = New-Object System.Windows.Forms.GroupBox
+$grpWatch.Text = '自动守护计划任务'
+$grpWatch.Location = New-Object System.Drawing.Point(12, 456)
+$grpWatch.Size = New-Object System.Drawing.Size(616, 92)
+$form.Controls.Add($grpWatch)
+
+$lblInterval = New-Object System.Windows.Forms.Label
+$lblInterval.Text = '检查间隔（分钟）'
+$lblInterval.Location = New-Object System.Drawing.Point(16, 34)
+$lblInterval.Size = New-Object System.Drawing.Size(120, 20)
+$grpWatch.Controls.Add($lblInterval)
+
+$numInterval = New-Object System.Windows.Forms.NumericUpDown
+$numInterval.Location = New-Object System.Drawing.Point(140, 30)
+$numInterval.Size = New-Object System.Drawing.Size(70, 24)
+$numInterval.Minimum = 5
+$numInterval.Maximum = 240
+$numInterval.Value = [int]$cfg.IntervalMinutes
+$grpWatch.Controls.Add($numInterval)
+
+$btnApplyWatch = New-Object System.Windows.Forms.Button
+$btnApplyWatch.Text = '保存并启动守护'
+$btnApplyWatch.Location = New-Object System.Drawing.Point(240, 26)
+$btnApplyWatch.Size = New-Object System.Drawing.Size(170, 32)
+$grpWatch.Controls.Add($btnApplyWatch)
+
+$btnRemoveWatch = New-Object System.Windows.Forms.Button
+$btnRemoveWatch.Text = '停止并移除守护'
+$btnRemoveWatch.Location = New-Object System.Drawing.Point(424, 26)
+$btnRemoveWatch.Size = New-Object System.Drawing.Size(170, 32)
+$grpWatch.Controls.Add($btnRemoveWatch)
+
+$grpShare = New-Object System.Windows.Forms.GroupBox
+$grpShare.Text = '局域网共享（文件 / 打印机 -> Everyone）'
+$grpShare.Location = New-Object System.Drawing.Point(12, 560)
+$grpShare.Size = New-Object System.Drawing.Size(616, 176)
+$form.Controls.Add($grpShare)
+
+$btnEnableShare = New-Object System.Windows.Forms.Button
+$btnEnableShare.Text = '开启文件/打印机共享'
+$btnEnableShare.Location = New-Object System.Drawing.Point(16, 28)
+$btnEnableShare.Size = New-Object System.Drawing.Size(200, 34)
+$grpShare.Controls.Add($btnEnableShare)
+
+$btnRestoreShare = New-Object System.Windows.Forms.Button
+$btnRestoreShare.Text = '恢复共享设置'
+$btnRestoreShare.Location = New-Object System.Drawing.Point(236, 28)
+$btnRestoreShare.Size = New-Object System.Drawing.Size(200, 34)
+$grpShare.Controls.Add($btnRestoreShare)
+
+$chkWatchShare = New-Object System.Windows.Forms.CheckBox
+$chkWatchShare.Text = '守护：共享/打印机被系统改动时自动恢复'
+$chkWatchShare.Location = New-Object System.Drawing.Point(16, 72)
+$chkWatchShare.Size = New-Object System.Drawing.Size(420, 22)
+$chkWatchShare.Checked = [bool]$cfg.AutoSharing
+$grpShare.Controls.Add($chkWatchShare)
+
+$lblShareFolder = New-Object System.Windows.Forms.Label
+$lblShareFolder.Text = '共享文件夹'
+$lblShareFolder.Location = New-Object System.Drawing.Point(16, 106)
+$lblShareFolder.Size = New-Object System.Drawing.Size(90, 22)
+$grpShare.Controls.Add($lblShareFolder)
+
+$txtSharePath = New-Object System.Windows.Forms.TextBox
+$txtSharePath.Location = New-Object System.Drawing.Point(112, 102)
+$txtSharePath.Size = New-Object System.Drawing.Size(330, 24)
+$txtSharePath.ReadOnly = $true
+$grpShare.Controls.Add($txtSharePath)
+
+$btnBrowse = New-Object System.Windows.Forms.Button
+$btnBrowse.Text = '浏览…'
+$btnBrowse.Location = New-Object System.Drawing.Point(452, 100)
+$btnBrowse.Size = New-Object System.Drawing.Size(140, 28)
+$grpShare.Controls.Add($btnBrowse)
+
+$lblShareName = New-Object System.Windows.Forms.Label
+$lblShareName.Text = '共享名'
+$lblShareName.Location = New-Object System.Drawing.Point(16, 142)
+$lblShareName.Size = New-Object System.Drawing.Size(90, 22)
+$grpShare.Controls.Add($lblShareName)
+
+$txtShareName = New-Object System.Windows.Forms.TextBox
+$txtShareName.Location = New-Object System.Drawing.Point(112, 138)
+$txtShareName.Size = New-Object System.Drawing.Size(150, 24)
+$grpShare.Controls.Add($txtShareName)
+
+$btnDoShare = New-Object System.Windows.Forms.Button
+$btnDoShare.Text = '共享给 Everyone'
+$btnDoShare.Location = New-Object System.Drawing.Point(276, 134)
+$btnDoShare.Size = New-Object System.Drawing.Size(150, 32)
+$grpShare.Controls.Add($btnDoShare)
+
+$btnSharePrinters = New-Object System.Windows.Forms.Button
+$btnSharePrinters.Text = '共享所有打印机'
+$btnSharePrinters.Location = New-Object System.Drawing.Point(442, 134)
+$btnSharePrinters.Size = New-Object System.Drawing.Size(150, 32)
+$grpShare.Controls.Add($btnSharePrinters)
+
+$grpClean = New-Object System.Windows.Forms.GroupBox
+$grpClean.Text = '一键安全清理（临时文件 / 微信 / QQ / 休眠）'
+$grpClean.Location = New-Object System.Drawing.Point(12, 744)
+$grpClean.Size = New-Object System.Drawing.Size(616, 88)
+$form.Controls.Add($grpClean)
+
+$chkCleanTemp = New-Object System.Windows.Forms.CheckBox
+$chkCleanTemp.Text = '临时文件与系统缓存'
+$chkCleanTemp.Location = New-Object System.Drawing.Point(16, 24)
+$chkCleanTemp.Size = New-Object System.Drawing.Size(300, 22)
+$chkCleanTemp.Checked = $true
+$grpClean.Controls.Add($chkCleanTemp)
+
+$chkCleanWeChat = New-Object System.Windows.Forms.CheckBox
+$chkCleanWeChat.Text = '微信缓存'
+$chkCleanWeChat.Location = New-Object System.Drawing.Point(330, 24)
+$chkCleanWeChat.Size = New-Object System.Drawing.Size(150, 22)
+$chkCleanWeChat.Checked = $true
+$grpClean.Controls.Add($chkCleanWeChat)
+
+$chkCleanQQ = New-Object System.Windows.Forms.CheckBox
+$chkCleanQQ.Text = 'QQ 缓存'
+$chkCleanQQ.Location = New-Object System.Drawing.Point(16, 50)
+$chkCleanQQ.Size = New-Object System.Drawing.Size(130, 22)
+$chkCleanQQ.Checked = $true
+$grpClean.Controls.Add($chkCleanQQ)
+
+$chkCleanHib = New-Object System.Windows.Forms.CheckBox
+$chkCleanHib.Text = '关闭休眠（默认不勾选）'
+$chkCleanHib.Location = New-Object System.Drawing.Point(160, 50)
+$chkCleanHib.Size = New-Object System.Drawing.Size(270, 22)
+$chkCleanHib.Checked = $false
+$grpClean.Controls.Add($chkCleanHib)
+
+$btnClean = New-Object System.Windows.Forms.Button
+$btnClean.Text = '开始清理'
+$btnClean.Location = New-Object System.Drawing.Point(440, 44)
+$btnClean.Size = New-Object System.Drawing.Size(152, 32)
+$grpClean.Controls.Add($btnClean)
+
+$btnRefresh = New-Object System.Windows.Forms.Button
+$btnRefresh.Text = '刷新状态'
+$btnRefresh.Location = New-Object System.Drawing.Point(12, 840)
+$btnRefresh.Size = New-Object System.Drawing.Size(130, 30)
+$form.Controls.Add($btnRefresh)
+
+$btnClearLog = New-Object System.Windows.Forms.Button
+$btnClearLog.Text = '清空日志'
+$btnClearLog.Location = New-Object System.Drawing.Point(152, 840)
+$btnClearLog.Size = New-Object System.Drawing.Size(130, 30)
+$form.Controls.Add($btnClearLog)
+
+$btnOpenLog = New-Object System.Windows.Forms.Button
+$btnOpenLog.Text = '打开日志目录'
+$btnOpenLog.Location = New-Object System.Drawing.Point(292, 840)
+$btnOpenLog.Size = New-Object System.Drawing.Size(130, 30)
+$form.Controls.Add($btnOpenLog)
+
+$txtLog = New-Object System.Windows.Forms.TextBox
+$txtLog.Location = New-Object System.Drawing.Point(12, 878)
+$txtLog.Size = New-Object System.Drawing.Size(616, 84)
+$txtLog.Multiline = $true
+$txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+$txtLog.ReadOnly = $true
+$txtLog.BackColor = [System.Drawing.Color]::Black
+$txtLog.ForeColor = [System.Drawing.Color]::Gainsboro
+$txtLog.Font = New-Object System.Drawing.Font('Consolas', 8.5)
+$form.Controls.Add($txtLog)
+
+$lnkAd = New-Object System.Windows.Forms.LinkLabel
+$lnkAd.Text = '轻账AI进销存、轻账ERP、官方网址:www.lightledger.cn　　© {0} 轻账优化大师' -f (Get-Date).Year
+$lnkAd.Location = New-Object System.Drawing.Point(12, 970)
+$lnkAd.Size = New-Object System.Drawing.Size(616, 22)
+$lnkAd.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+$lnkAd.LinkColor = [System.Drawing.Color]::SteelBlue
+$lnkAd.ActiveLinkColor = [System.Drawing.Color]::SteelBlue
+$lnkAd.Add_LinkClicked({ Start-Process 'http://www.lightledger.cn' })
+$form.Controls.Add($lnkAd)
+
+$refresh = {
+    try {
+        $st = Get-WinGuardStatus
+        if ($st.UpdateBlocked) {
+            $lblUpd.Text = 'Windows 更新：已关闭（服务 {0}，策略 NoAutoUpdate={1}）' -f $st.UpdateServiceState, $st.PolicyNoAutoUpdate
+            $lblUpd.ForeColor = [System.Drawing.Color]::Firebrick
+        } else {
+            $lblUpd.Text = 'Windows 更新：开启中（服务 {0}，状态 {1}）' -f $st.UpdateServiceState, $(if ($st.UpdateServiceRun) { '运行' } else { '停止' })
+            $lblUpd.ForeColor = [System.Drawing.Color]::ForestGreen
+        }
+        if ($st.FirewallServiceDown) {
+            $lblFw.Text = '防火墙：服务已停用（强力模式），不拦截任何流量'
+            $lblFw.ForeColor = [System.Drawing.Color]::Firebrick
+        } elseif (-not $st.FirewallConfigured) {
+            $lblFw.Text = '防火墙：无法读取配置文件（NetSecurity 模块不可用）'
+            $lblFw.ForeColor = [System.Drawing.Color]::DarkOrange
+        } elseif ($st.FirewallAllOff) {
+            $lblFw.Text = '防火墙：三个配置文件全部关闭'
+            $lblFw.ForeColor = [System.Drawing.Color]::Firebrick
+        } else {
+            $names = ($st.FirewallProfiles | ForEach-Object { '{0}={1}' -f $_.Name, $(if ($_.Enabled) { '开' } else { '关' }) }) -join '，'
+            $lblFw.Text = "防火墙：$names"
+            $lblFw.ForeColor = [System.Drawing.Color]::ForestGreen
+        }
+        if ($st.SharingOn) {
+            if ($st.SharingFwNotFiltering) {
+                $lblShare.Text = '网络共享：已开启（匿名访问=开，防火墙服务已停用不拦截，打印机 {0} 台已共享）' -f $st.SharedPrinters
+            } else {
+                $lblShare.Text = '网络共享：已开启（匿名访问=开，规则 {0}/{1} 条启用，打印机 {2} 台已共享）' -f $st.SharingRulesOn, $st.SharingRulesTotal, $st.SharedPrinters
+            }
+            $lblShare.ForeColor = [System.Drawing.Color]::ForestGreen
+        } else {
+            $lblShare.Text = '网络共享：未开启（规则 {0}/{1} 条启用，打印机 {2} 台已共享）' -f $st.SharingRulesOn, $st.SharingRulesTotal, $st.SharedPrinters
+            $lblShare.ForeColor = [System.Drawing.Color]::Gray
+        }
+        if ($st.WatchdogRegistered) {
+            $c = Get-WinGuardConfig
+            $lblWatch.Text = "自动守护：已注册（每 $($c.IntervalMinutes) 分钟，强力模式=$([bool]$c.Deep)）"
+            $lblWatch.ForeColor = [System.Drawing.Color]::DodgerBlue
+        } else {
+            $lblWatch.Text = '自动守护：未注册计划任务'
+            $lblWatch.ForeColor = [System.Drawing.Color]::Gray
+        }
+        if (-not $st.IsAdmin) {
+            $lblWatch.Text = $lblWatch.Text + '  【当前非管理员，写操作不可用】'
+        }
+        if (Get-HibernationEnabled) {
+            $chkCleanHib.Text = '关闭休眠（删除 hiberfil.sys 释放磁盘，快速启动将失效）'
+        } else {
+            $chkCleanHib.Text = '休眠已关闭（hiberfil.sys 已删除，无需再清理）'
+            $chkCleanHib.Checked = $false
+        }
+    } catch {
+        $lblUpd.Text = "状态读取失败：$($_.Exception.Message)"
+    }
+}
+
+$invoke = {
+    param([scriptblock]$Body)
+    $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
+    $form.Enabled = $false
+    try {
+        & $Body
+    } catch {
+        Write-Log "错误：$($_.Exception.Message)" 'ERROR' $sink
+    } finally {
+        $form.Enabled = $true
+        $form.Cursor = [System.Windows.Forms.Cursors]::Default
+        & $refresh
+    }
+}
+
+$btnDisableUpd.Add_Click({ & $invoke { Disable-WindowsUpdate -Deep:$chkDeep.Checked -Sink:$sink } })
+$btnRestoreUpd.Add_Click({ & $invoke { Restore-WindowsUpdate -Sink:$sink } })
+$btnDisableFw.Add_Click({ & $invoke { Disable-Firewall -Deep:$chkDeep.Checked -Sink:$sink } })
+$btnRestoreFw.Add_Click({ & $invoke { Restore-Firewall -Sink:$sink } })
+
+$btnApplyWatch.Add_Click({
+        & $invoke {
+            Require-Admin
+            $values = @{
+                Enabled         = ($chkWatchUpdate.Checked -or $chkWatchFirewall.Checked -or $chkWatchShare.Checked)
+                AutoUpdate      = $chkWatchUpdate.Checked
+                AutoFirewall    = $chkWatchFirewall.Checked
+                AutoSharing     = $chkWatchShare.Checked
+                Deep            = $chkDeep.Checked
+                IntervalMinutes = [int] $numInterval.Value
+            }
+            Set-WinGuardConfig $values | Out-Null
+            if ($values['Enabled']) {
+                Install-WinGuardWatchdog -Sink:$sink
+                Write-Log '守护任务已注册，立即执行一次检查。' 'INFO' $sink
+                Apply-WinGuardConfig -Sink:$sink
+            } else {
+                Uninstall-WinGuardWatchdog -Sink:$sink
+                Write-Log '未勾选任何守护项，计划任务已移除。' 'INFO' $sink
+            }
+        }
+    })
+
+$btnRemoveWatch.Add_Click({
+        & $invoke {
+            Set-WinGuardConfig @{ Enabled = $false } | Out-Null
+            Uninstall-WinGuardWatchdog -Sink:$sink
+        }
+    })
+
+$btnEnableShare.Add_Click({ & $invoke { Require-Admin; Enable-LanSharing -Sink:$sink } })
+$btnRestoreShare.Add_Click({ & $invoke { Require-Admin; Restore-LanSharing -Sink:$sink } })
+$btnSharePrinters.Add_Click({ & $invoke { Require-Admin; Share-PrintersToEveryone -Sink:$sink } })
+
+$btnClean.Add_Click({
+    & $invoke {
+        Require-Admin
+        $null = Invoke-SafeCleanup -SkipTemp:(-not $chkCleanTemp.Checked) -SkipWeChat:(-not $chkCleanWeChat.Checked) -SkipQQ:(-not $chkCleanQQ.Checked) -DisableHibernation:$chkCleanHib.Checked -Sink:$sink
+    }
+})
+
+$btnBrowse.Add_Click({
+    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dlg.Description = '选择要共享给 Everyone 的文件夹'
+    $dlg.ShowNewFolderButton = $true
+    if ($dlg.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtSharePath.Text = $dlg.SelectedPath
+        if ([string]::IsNullOrWhiteSpace($txtShareName.Text)) {
+            $txtShareName.Text = Split-Path -Leaf $dlg.SelectedPath
+        }
+    }
+    $dlg.Dispose()
+})
+
+$btnDoShare.Add_Click({
+    & $invoke {
+        Require-Admin
+        $p = $txtSharePath.Text.Trim()
+        $n = $txtShareName.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($p)) { throw '请先选择要共享的文件夹。' }
+        if (-not (Test-Path -LiteralPath $p -PathType Container)) { throw "文件夹不存在：$p" }
+        if ([string]::IsNullOrWhiteSpace($n)) { throw '请填写共享名。' }
+        if ($n -match '[\\/:*?"<>|]') { throw '共享名不能包含 \ / : * ? " < > | 字符。' }
+        Enable-LanSharing -Sink:$sink
+        Share-FolderToEveryone -Path $p -Name $n -Sink:$sink
+        Write-Log "文件夹已共享：\\$env:COMPUTERNAME\$n（Everyone 完全控制，请确认局域网内访问正常）" 'OK' $sink
+    }
+})
+
+$btnRefresh.Add_Click({ & $refresh })
+$btnClearLog.Add_Click({ $txtLog.Clear() })
+$btnOpenLog.Add_Click({
+    Start-Process -FilePath explorer.exe -ArgumentList "`"$stateDir`""
+})
+
+$txtLog.AppendText("轻账优化大师 已启动。日志同时写入 $logPath`r`n")
+$txtLog.AppendText('提示：关闭防火墙会让本机直接暴露在网络中，请确认你确实需要这样做；恢复按钮可回到改动前的状态。' + [Environment]::NewLine)
+& $refresh
+
+[System.Windows.Forms.Application]::Run($form)
